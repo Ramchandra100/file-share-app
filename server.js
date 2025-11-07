@@ -14,22 +14,29 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
-    origin: "*",
+    origin: ["https://file-share-app-xwrr.onrender.com", "http://localhost:5000"],
     methods: ["GET", "POST"]
   }
 });
 
 // Debug: Check if environment variable is loaded
-console.log('MongoDB URI:', process.env.MONGODB_URI ? 'Loaded successfully' : 'NOT LOADED');
+console.log('MongoDB URI from environment:', process.env.MONGODB_URI ? 'Present' : 'NOT FOUND');
 
-// Connect to MongoDB - SIMPLIFIED CONNECTION
-console.log('Connecting to MongoDB...');
-mongoose.connect(process.env.MONGODB_URI)
+// Connect to MongoDB - Use environment variable only
+const mongoURI = process.env.MONGODB_URI;
+console.log('Connecting to MongoDB with URI:', mongoURI ? 'URI provided' : 'No URI found');
+
+if (!mongoURI) {
+    console.error('❌ MONGODB_URI environment variable is required');
+    process.exit(1);
+}
+
+mongoose.connect(mongoURI)
   .then(() => console.log('✅ Connected to MongoDB!'))
   .catch(err => {
     console.error('❌ MongoDB connection error:', err.message);
     console.log('Please check:');
-    console.log('1. MONGODB_URI in .env file');
+    console.log('1. MONGODB_URI environment variable');
     console.log('2. Database user exists in MongoDB Atlas');
     console.log('3. Network Access allows 0.0.0.0/0');
   });
@@ -57,8 +64,11 @@ const upload = multer({
   }
 });
 
-// Middleware
-app.use(cors());
+// Middleware - SINGLE CORS CONFIGURATION
+app.use(cors({
+  origin: ["https://file-share-app-xwrr.onrender.com", "http://localhost:5000"],
+  credentials: true
+}));
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads'))); // Serve uploaded files
