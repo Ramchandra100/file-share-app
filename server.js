@@ -208,31 +208,35 @@ app.post('/api/rooms/:roomCode/upload', upload.array('files'), async (req, res) 
   }
 });
 
-// File download route with original filename
-app.get('/api/files/:filename', (req, res) => {
-  const filename = req.params.filename;
-  const filePath = path.join(__dirname, 'uploads', filename);
-  
-  if (fs.existsSync(filePath)) {
-    // Get original filename from database
-    Room.findOne({ 'files.filename': filename })
-      .then(room => {
-        if (room) {
-          const fileData = room.files.find(f => f.filename === filename);
-          const originalName = fileData ? fileData.originalName : filename;
-          
-          // Set headers for download with original filename
-          res.setHeader('Content-Disposition', `attachment; filename="${originalName}"`);
-          res.sendFile(filePath);
-        } else {
-          res.download(filePath); // Fallback
-        }
-      })
-      .catch(() => {
-        res.download(filePath); // Fallback if database query fails
-      });
-  } else {
-    res.status(404).json({ success: false, error: 'File not found' });
+// File download route with original filename - FIXED VERSION
+app.get('/api/files/:filename', async (req, res) => {
+  try {
+    const filename = req.params.filename;
+    const filePath = path.join(__dirname, 'uploads', filename);
+    
+    // Check if file exists physically
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ success: false, error: 'File not found on server' });
+    }
+
+    // Search ALL rooms for this file
+    const room = await Room.findOne({ 'files.filename': filename });
+    
+    if (room) {
+      const fileData = room.files.find(f => f.filename === filename);
+      const originalName = fileData ? fileData.originalName : filename;
+      
+      // Set headers for download with original filename
+      res.setHeader('Content-Disposition', `attachment; filename="${originalName}"`);
+      res.sendFile(filePath);
+    } else {
+      // File exists physically but not in database - send with stored filename
+      console.warn(`File ${filename} exists but not found in database`);
+      res.download(filePath);
+    }
+  } catch (error) {
+    console.error('File download error:', error);
+    res.status(500).json({ success: false, error: 'Download failed' });
   }
 });
 
