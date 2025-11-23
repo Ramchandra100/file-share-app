@@ -159,7 +159,7 @@ class FileShareApp {
         }
     }
 
-    showRoomScreen() {
+showRoomScreen() {
         this.homeScreen.classList.remove('active');
         this.roomScreen.classList.add('active');
         this.roomCodeDisplay.textContent = this.currentRoom;
@@ -167,27 +167,44 @@ class FileShareApp {
         this.fileList.innerHTML = '';
         this.usersList.innerHTML = '';
 
-        // --- ADD THIS BLOCK ---
-        // Special handling for RAM123 (Safe Vault)
+        // Remove any existing special buttons/banners from previous sessions
+        const existingWarning = document.querySelector('.special-room-warning');
+        if (existingWarning) existingWarning.remove();
+        
+        const existingClearBtn = document.querySelector('.clear-all-btn-admin');
+        if (existingClearBtn) existingClearBtn.remove();
+
+        // --- CASE 1: RAM123 (Vault) ---
         if (this.currentRoom === 'RAM123') {
             const warning = document.createElement('div');
             warning.className = 'special-room-warning';
-            warning.style.backgroundColor = '#d4edda'; // Green color
+            warning.style.backgroundColor = '#d4edda'; // Green
             warning.style.color = '#155724';
             warning.style.borderColor = '#c3e6cb';
-            warning.textContent = '🛡️ SECURE VAULT: Files in this room are saved permanently.';
+            warning.textContent = '🛡️ SECURE VAULT: Files here are permanent. Private Room.';
             this.fileList.parentNode.insertBefore(warning, this.fileList);
         }
         
-        // Add Clear All button for RAMRAM room
-        if (this.currentRoom === 'RAMRAM') {
-            this.addClearAllButton();
-            
-            // Add special warning for RAMRAM room
+        // --- CASE 2: RAMRAM (Admin) ---
+        else if (this.currentRoom === 'RAMRAM') {
+            // 1. Add Warning Banner
             const warning = document.createElement('div');
             warning.className = 'special-room-warning';
-            warning.textContent = '⚠️ ADMIN ROOM: You can see and delete ALL files from ALL rooms';
+            warning.style.backgroundColor = '#fff3cd'; // Yellow
+            warning.style.color = '#856404';
+            warning.textContent = '⚠️ ADMIN MODE: Viewing ALL files from ALL rooms.';
             this.fileList.parentNode.insertBefore(warning, this.fileList);
+
+            // 2. Add Clear All Button
+            this.addClearAllButton();
+        }
+
+        // --- CASE 3: Normal Rooms (HJFDKG etc) ---
+        else {
+             // Do nothing special. 
+             // They cannot see "Secure Vault" msg.
+             // They cannot see "Admin" msg.
+             // They cannot see "Clear All" button.
         }
     }
 
@@ -213,18 +230,49 @@ class FileShareApp {
         }
     }
 
-    addClearAllButton() {
+addClearAllButton() {
+        // Prevent adding duplicate buttons
+        if (document.querySelector('.clear-all-btn-admin')) return;
+
         const clearAllBtn = document.createElement('button');
-        clearAllBtn.className = 'btn danger';
-        clearAllBtn.textContent = '🗑️ Clear All Files';
+        clearAllBtn.className = 'btn danger clear-all-btn-admin'; // Add class for easy removal
+        clearAllBtn.textContent = '🗑️ ADMIN: Clear Database';
         clearAllBtn.style.margin = '10px 0';
         clearAllBtn.addEventListener('click', () => {
             this.clearAllFiles();
         });
         
-        // Add button to the file sharing section
         const fileSection = document.querySelector('.file-upload-container');
         fileSection.parentNode.insertBefore(clearAllBtn, fileSection.nextSibling);
+    }
+
+    async clearAllFiles() {
+        // Double check specifically for RAMRAM
+        if (this.currentRoom !== 'RAMRAM') {
+            alert('❌ Unauthorized');
+            return;
+        }
+
+        if (!confirm('⚠️ ADMIN ACTION: This will delete ALL files from ALL rooms globally. Continue?')) return;
+
+        try {
+            // Note: We now pass the roomCode in the URL to prove authorization
+            const response = await fetch(`/api/admin/clear-all/${this.currentRoom}`, {
+                method: 'DELETE'
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                this.fileList.innerHTML = '';
+                alert('✅ Database wiped successfully');
+                this.socket.emit('all-files-cleared');
+            } else {
+                alert('Failed: ' + data.error);
+            }
+        } catch (error) {
+            alert('Error: ' + error.message);
+        }
     }
 
     async clearAllFiles() {

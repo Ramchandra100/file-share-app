@@ -83,7 +83,7 @@ app.get('/', (req, res) => {
   res.send('File Share App Server is Running with MongoDB GridFS!');
 });
 
-// Create or join room
+// 1. UPDATE THE POST ROUTE (Join Room)
 app.post('/api/rooms', async (req, res) => {
   try {
     const { roomCode } = req.body;
@@ -94,20 +94,26 @@ app.post('/api/rooms', async (req, res) => {
       await room.save();
     }
 
-    // Special handling for RAMRAM (Admin View)
+    // 🔒 STRICT CHECK: ONLY RAMRAM gets all files
     if (roomCode === 'RAMRAM') {
       const allRooms = await Room.find({});
       const allFiles = allRooms.flatMap(room => room.files);
-      return res.json({ success: true, room: room, allFiles: allFiles });
+      return res.json({ 
+        success: true, 
+        room: room, 
+        allFiles: allFiles,
+        isAdmin: true // Flag to tell frontend this is admin
+      });
     }
 
-    res.json({ success: true, room });
+    // RAM123 and Normal Rooms just get their own room data
+    res.json({ success: true, room, isAdmin: false });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// Get room data
+// 2. UPDATE THE GET ROUTE (Refresh/Load Room)
 app.get('/api/rooms/:roomCode', async (req, res) => {
   try {
     const roomCode = req.params.roomCode;
@@ -115,13 +121,21 @@ app.get('/api/rooms/:roomCode', async (req, res) => {
     
     if (!room) return res.status(404).json({ success: false, error: 'Room not found' });
 
+    // 🔒 STRICT CHECK: ONLY RAMRAM gets all files
     if (roomCode === 'RAMRAM') {
       const allRooms = await Room.find({});
       const allFiles = allRooms.flatMap(r => r.files);
-      return res.json({ success: true, room: room, allFiles: allFiles });
+      return res.json({ 
+        success: true, 
+        room: room, 
+        allFiles: allFiles,
+        isAdmin: true 
+      });
     }
 
-    res.json({ success: true, room });
+    // RAM123 and Normal rooms behave exactly the same here:
+    // They only receive the files belonging to THIS roomCode
+    res.json({ success: true, room, isAdmin: false });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
@@ -239,14 +253,21 @@ app.delete('/api/rooms/:roomCode/files/:filename', async (req, res) => {
   }
 });
 
-// Clear All (RAMRAM Admin)
-app.delete('/api/admin/clear-all', async (req, res) => {
+// 3. SECURE THE CLEAR ALL ROUTE
+// Update the route to require the roomCode to prove it's RAMRAM
+app.delete('/api/admin/clear-all/:roomCode', async (req, res) => {
   try {
+    const { roomCode } = req.params;
+
+    // 🔒 SECURITY CHECK
+    if (roomCode !== 'RAMRAM') {
+        return res.status(403).json({ success: false, error: 'Unauthorized: Only RAMRAM can clear all files' });
+    }
+
     if (!gridfsBucket) return res.status(500).json({ success: false, error: 'Database not ready' });
 
-    // Drop the entire files bucket
+    // Drop bucket and recreate
     await gridfsBucket.drop();
-    // Re-initialize bucket
     const db = mongoose.connection.db;
     gridfsBucket = new GridFSBucket(db, { bucketName: 'uploads' });
 
