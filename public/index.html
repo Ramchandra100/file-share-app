@@ -1,106 +1,67 @@
-y<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>File Share App | Easy way to share</title>
+    <title>File Share App</title>
     <link rel="stylesheet" href="css/style.css">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
 <body>
-    <header>
-        <div class="logo">
-            <i class="fas fa-cube"></i> File Share App
-        </div>
-        <div class="status">
-            <span style="color: var(--success);">● Online</span>
-        </div>
-    </header>
-
-    <main class="main-container">
-        
+    <div class="container">
+        <!-- Home Screen -->
         <div id="homeScreen" class="screen active">
+            <h1>📁 File Share App</h1>
             <div class="card">
-                <h1>Data Portal</h1>
-                <p style="color: var(--text-dim); margin-bottom: 30px;">
-                    Secure, ephemeral, and encrypted file sharing for teams.
-                </p>
-
-                <div class="action-buttons">
-                    <button id="createRoomBtn" class="btn primary">
-                        <i class="fas fa-plus"></i> Create New Room
-                    </button>
-                    
-                    <div class="divider" style="margin: 20px 0; color: var(--glass-border);">— OR —</div>
-                    
-                    <div class="join-form" style="display: flex; gap: 10px;">
-                        <input type="text" id="roomCodeInput" placeholder="ENTER ROOM CODE" maxlength="6" style="text-align: center; letter-spacing: 3px; text-transform: uppercase;">
-                        <button id="joinRoomBtn" class="btn secondary">
-                            <i class="fas fa-arrow-right"></i> Join
-                        </button>
-                    </div>
-                </div>
-
-                <div class="instructions-panel">
-                    <h3><i class="fas fa-info-circle"></i> How It Works</h3>
-                    <ul>
-                        <li>Create a room to generate a unique 6-digit code.</li>
-                        <li>Share the code with friends to transfer files instantly.</li>
-                        <li><strong>Standard Rooms:</strong> Files auto-delete after 24 hours.</li>
-                    </ul>
+                <button id="createRoomBtn" class="btn primary">Create New Room</button>
+                <div class="divider">OR</div>
+                <div class="join-form">
+                    <input type="text" id="roomCodeInput" placeholder="Enter Room Code" maxlength="6">
+                    <button id="joinRoomBtn" class="btn secondary">Join Room</button>
                 </div>
             </div>
         </div>
 
+        <!-- Room Screen -->
         <div id="roomScreen" class="screen">
-            <div class="card">
-                <div class="room-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--glass-border); padding-bottom: 20px; margin-bottom: 20px;">
-                    <div>
-                        <span style="color: var(--text-dim);">CURRENT SESSION</span>
-                        <h2 style="margin: 0; font-size: 2.5rem; letter-spacing: 3px;" id="roomCodeDisplay">CODE</h2>
+            <div class="room-header">
+                <h2>Room: <span id="roomCodeDisplay"></span></h2>
+                <button id="leaveRoomBtn" class="btn danger">Leave Room</button>
+            </div>
+            
+            <div class="room-content">
+                <!-- Text Sharing Section -->
+                <div class="section">
+                    <h3>📝 Shared Text</h3>
+                    <div class="text-area-container">
+                        <textarea id="sharedText" placeholder="Type text here and it will appear for everyone in the room..."></textarea>
+                        <button id="clearTextBtn" class="btn danger">Clear All Text</button>
                     </div>
-                    <button id="leaveRoomBtn" class="btn danger">
-                        <i class="fas fa-sign-out-alt"></i> Disconnect
-                    </button>
                 </div>
-                
-                <div class="room-content">
-                    <div class="section">
-                        <h3><i class="fas fa-comment-alt"></i> Encrypted Memo</h3>
-                        <div class="text-area-container">
-                            <textarea id="sharedText" placeholder="Type secure message here..."></textarea>
-                            <button id="clearTextBtn" class="btn secondary" style="margin-top: 10px; font-size: 0.8rem;">Clear Memo</button>
-                        </div>
-                    </div>
 
-                    <div class="section" style="margin-top: 30px;">
-                        <h3><i class="fas fa-cloud-upload-alt"></i> File Transfer</h3>
-                        <div class="file-upload-container" style="display: flex; gap: 10px; margin-bottom: 15px;">
-                            <input type="file" id="fileInput" multiple style="background: rgba(255,255,255,0.1);">
-                            <button id="uploadBtn" class="btn primary">Upload</button>
-                        </div>
-                        <div id="fileList" class="file-list">
-                            </div>
+                <!-- File Sharing Section -->
+                <div class="section">
+                    <h3>📎 File Sharing</h3>
+                    <div class="file-upload-container">
+                        <input type="file" id="fileInput" multiple>
+                        <button id="uploadBtn" class="btn primary">Upload Files</button>
                     </div>
+                    <div id="fileList" class="file-list">
+                        <!-- Uploaded files will appear here -->
+                    </div>
+                </div>
 
-                    <div class="section" style="margin-top: 30px;">
-                        <h3><i class="fas fa-users"></i> Active Links</h3>
-                        <div id="usersList" class="users-list">
-                            </div>
+                <!-- Users in Room -->
+                <div class="section">
+                    <h3>👥 Users in Room</h3>
+                    <div id="usersList" class="users-list">
+                        <!-- Connected users will appear here -->
                     </div>
                 </div>
             </div>
         </div>
+    </div>
 
-    </main>
-
-    <footer>
-        <p>&copy; 2025 File Share App. Encrypted & Secure.</p>
-        <div style="margin-top: 10px; font-size: 0.8rem; color: var(--primary);">
-            Tool By Ram
-        </div>
-    </footer>
-
+    <!-- Socket.io Client -->
     <script src="/socket.io/socket.io.js"></script>
     <script src="js/app.js"></script>
 </body>
