@@ -1,68 +1,130 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>File Share App</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Orbitron:wght@400;700;900&display=swap"
+        rel="stylesheet">
+
     <link rel="stylesheet" href="css/style.css">
 </head>
+
 <body>
+    <div id="vanta-bg"></div>
+    <div class="overlay"></div>
+
+    <!-- HEADER -->
+    <header
+        class="w-full p-6 flex justify-between items-center border-b border-white/10 bg-black/20 backdrop-blur-md z-50">
+        <a href="https://toolbyram.netlify.app/">
+            <div class="flex items-center gap-3">
+                <div
+                    class="w-10 h-10 rounded-lg bg-gradient-to-br from-red-600 to-rose-900 flex items-center justify-center text-xl font-bold shadow-lg shadow-red-900/30">
+                    <i class="fas fa-crosshairs"></i>
+                </div>
+                <div>
+                    <h1
+                        class="text-2xl font-bold tracking-wide bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400 leading-none">
+                        DEV<span class="font-light">NEXUS</span>
+                    </h1>
+                    <span class="text-[12px] text-red-400 font-mono tracking-[0.2em] block uppercase opacity-80">Tool By
+                        Ram</span>
+                </div>
+            </div>
+        </a>
+        <div class="flex gap-4">
+            <a href="https://www.linkedin.com/in/ramchandra-pandit/"
+                class="w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center transition-all hover:scale-110 border border-white/5 text-blue-400">
+                <i class="fab fa-linkedin-in"></i>
+            </a>
+        </div>
+    </header>
+
+
     <div class="container">
-        <!-- Home Screen -->
         <div id="homeScreen" class="screen active">
-            <h1>📁 File Share App</h1>
-            <div class="card">
-                <button id="createRoomBtn" class="btn primary">Create New Room</button>
-                <div class="divider">OR</div>
+            <h1 class="glitch-text" data-text="FILE SHARE APP">FILE SHARE APP</h1>
+            <div class="card glass-panel">
+                <button id="createRoomBtn" class="btn primary glow-effect">Initialize New Room</button>
+                <div class="divider"><span>OR</span></div>
                 <div class="join-form">
-                    <input type="text" id="roomCodeInput" placeholder="Enter Room Code" maxlength="6">
-                    <button id="joinRoomBtn" class="btn secondary">Join Room</button>
+                    <input type="text" id="roomCodeInput" placeholder="ENTER CODE" maxlength="6">
+                    <button id="joinRoomBtn" class="btn secondary glow-effect">Connect</button>
                 </div>
             </div>
         </div>
 
-        <!-- Room Screen -->
         <div id="roomScreen" class="screen">
-            <div class="room-header">
-                <h2>Room: <span id="roomCodeDisplay"></span></h2>
-                <button id="leaveRoomBtn" class="btn danger">Leave Room</button>
+            <div class="room-header glass-panel">
+                <div class="header-info">
+                    <span class="label">SECURE CONNECTION</span>
+                    <h2 id="roomCodeDisplay" class="neon-text"></h2>
+                </div>
+                <button id="leaveRoomBtn" class="btn danger">Disconnect</button>
             </div>
-            
+
             <div class="room-content">
-                <!-- Text Sharing Section -->
-                <div class="section">
-                    <h3>📝 Shared Text</h3>
+                <div class="section glass-panel">
+                    <h3><span class="icon">📝</span> Encrypted Text Stream</h3>
                     <div class="text-area-container">
-                        <textarea id="sharedText" placeholder="Type text here and it will appear for everyone in the room..."></textarea>
-                        <button id="clearTextBtn" class="btn danger">Clear All Text</button>
+                        <textarea id="sharedText" placeholder="Input data stream..."></textarea>
+                        <button id="clearTextBtn" class="btn danger-outline">Purge Data</button>
                     </div>
                 </div>
 
-                <!-- File Sharing Section -->
-                <div class="section">
-                    <h3>📎 File Sharing</h3>
+                <div class="section glass-panel">
+                    <h3><span class="icon">📎</span> Quantum Transfer</h3>
                     <div class="file-upload-container">
-                        <input type="file" id="fileInput" multiple>
-                        <button id="uploadBtn" class="btn primary">Upload Files</button>
+                        <label for="fileInput" class="custom-file-upload btn primary">
+                            Select Files
+                        </label>
+                        <input type="file" id="fileInput" multiple style="display: none;">
+                        <button id="uploadBtn" class="btn secondary">Initiate Upload</button>
                     </div>
-                    <div id="fileList" class="file-list">
-                        <!-- Uploaded files will appear here -->
+                    <div id="fileList" class="file-list custom-scrollbar">
                     </div>
                 </div>
 
-                <!-- Users in Room -->
-                <div class="section">
-                    <h3>👥 Users in Room</h3>
+                <div class="section glass-panel">
+                    <h3><span class="icon">👥</span> Active Nodes</h3>
                     <div id="usersList" class="users-list">
-                        <!-- Connected users will appear here -->
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Socket.io Client -->
+        <!-- FOOTER -->
+    <footer class="w-full p-6 text-center border-t border-white/10 bg-black/20 backdrop-blur-md" style="margin-top: 15%;">
+        <div class="flex flex-col items-center gap-2">
+            <p class="text-gray-500 text-sm">&copy; 2025 DevNexus System.</p>
+            <div class="text-xs font-mono text-blue-500/80 uppercase tracking-widest flex items-center gap-2">
+                <i class="fas fa-code"></i> Tool By Ram
+            </div>
+            <!-- Social Links -->
+            <div class="mt-2 flex gap-4">
+                 <a href="https://linkedin.com" target="_blank" class="text-gray-400 hover:text-blue-500 transition-colors"><i class="fab fa-linkedin text-xl"></i></a>
+                 <a href="https://github.com/Ramchandra100" class="text-gray-400 hover:text-gray-200 transition-colors"><i class="fab fa-github text-xl"></i></a>
+            </div>
+        </div>
+    </footer>
+    
+
     <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vanta/0.5.24/vanta.net.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
     <script src="js/app.js"></script>
 </body>
+
+
 </html>

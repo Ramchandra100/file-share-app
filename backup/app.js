@@ -1,44 +1,25 @@
+// app.js - FRONTEND JAVASCRIPT (runs in browser)
 class FileShareApp {
     constructor() {
         this.socket = io();
         this.currentRoom = null;
-        
-        // Initialize 3D Background (Vanta.js)
-        this.initBackground();
         
         this.initializeElements();
         this.initializeEventListeners();
         this.initializeSocketEvents();
     }
 
-    initBackground() {
-        try {
-            VANTA.NET({
-                el: "#vanta-bg",
-                mouseControls: true,
-                touchControls: true,
-                gyroControls: false,
-                minHeight: 200.00,
-                minWidth: 200.00,
-                scale: 1.00,
-                scaleMobile: 1.00,
-                color: 0xbc13fe,       // Purple nodes
-                backgroundColor: 0x0a0a12, // Dark BG
-                points: 12.00,
-                maxDistance: 22.00,
-                spacing: 18.00
-            });
-        } catch (e) {
-            console.log("Vanta JS failed to load (likely in a test env without WebGL)");
-        }
-    }
-
     initializeElements() {
+        // Screens
         this.homeScreen = document.getElementById('homeScreen');
         this.roomScreen = document.getElementById('roomScreen');
+        
+        // Home screen elements
         this.createRoomBtn = document.getElementById('createRoomBtn');
         this.joinRoomBtn = document.getElementById('joinRoomBtn');
         this.roomCodeInput = document.getElementById('roomCodeInput');
+        
+        // Room screen elements
         this.roomCodeDisplay = document.getElementById('roomCodeDisplay');
         this.leaveRoomBtn = document.getElementById('leaveRoomBtn');
         this.sharedText = document.getElementById('sharedText');
@@ -50,15 +31,19 @@ class FileShareApp {
     }
 
     initializeEventListeners() {
+        // Home screen events
         this.createRoomBtn.addEventListener('click', () => this.createRoom());
         this.joinRoomBtn.addEventListener('click', () => this.joinRoom());
         this.roomCodeInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') this.joinRoom();
         });
+
+        // Room screen events
         this.leaveRoomBtn.addEventListener('click', () => this.leaveRoom());
         this.clearTextBtn.addEventListener('click', () => this.clearText());
         this.uploadBtn.addEventListener('click', () => this.uploadFiles());
         
+        // Real-time text sharing
         this.sharedText.addEventListener('input', (e) => {
             this.socket.emit('send-text', {
                 roomCode: this.currentRoom,
@@ -68,17 +53,24 @@ class FileShareApp {
     }
 
     initializeSocketEvents() {
+
+        // ADD THIS NEW EVENT LISTENER:
         this.socket.on('files-expired', () => {
-            if (this.currentRoom) this.loadRoomData(this.currentRoom);
+            console.log('Refreshing file list (cleanup occurred)');
+            if (this.currentRoom) {
+                // Reload data to show updated file list
+                this.loadRoomData(this.currentRoom);
+            }
         });
 
+        // Handle incoming real-time text
         this.socket.on('receive-text', (data) => {
             this.sharedText.value = data.text;
         });
 
+        // Handle user connections
         this.socket.on('user-joined', (userId) => {
             this.addUserToList(userId);
-            this.animateItemEntry(`#user-${userId}`); // Animate new user
         });
 
         this.socket.on('user-left', (userId) => {
@@ -89,7 +81,9 @@ class FileShareApp {
             this.updateUsersList(users);
         });
 
+        // Handle real-time file updates
         this.socket.on('new-files', (data) => {
+            // Only add files if we're in the correct room
             if (this.currentRoom) {
                 data.files.forEach(file => {
                     this.addFileToList(file.originalName, file.filename);
@@ -97,27 +91,25 @@ class FileShareApp {
             }
         });
 
+        // Handle real-time file deletion
         this.socket.on('file-deleted', (data) => {
             if (this.currentRoom === data.roomCode) {
+                // Find and remove the file element from UI
                 const fileElements = this.fileList.querySelectorAll('.file-item');
                 fileElements.forEach(element => {
                     const downloadBtn = element.querySelector('.download-btn');
                     if (downloadBtn && downloadBtn.dataset.filename === data.filename) {
-                        // Animate deletion
-                        gsap.to(element, {
-                            opacity: 0,
-                            x: -50,
-                            duration: 0.3,
-                            onComplete: () => element.remove()
-                        });
+                        element.remove();
                     }
                 });
             }
         });
 
+        // Handle all files cleared notification
         this.socket.on('all-files-cleared', () => {
+            // Clear file list UI for all users
             this.fileList.innerHTML = '';
-            alert('SYSTEM MESSAGE: Database wiped by admin.');
+            alert('All files have been cleared by admin');
         });
     }
 
@@ -134,19 +126,21 @@ class FileShareApp {
         const code = roomCode || this.roomCodeInput.value.trim().toUpperCase();
         
         if (!code) {
-            this.shakeElement(this.roomCodeInput); // Visual feedback
+            alert('Please enter a room code');
             return;
         }
 
         if (code.length !== 6 && code !== 'RAMRAM') {
-            alert('Error: Invalid Protocol (Code must be 6 characters)');
+            alert('Room code must be 6 characters');
             return;
         }
 
         try {
             const response = await fetch('/api/rooms', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json'
+                },
                 body: JSON.stringify({ roomCode: code })
             });
 
@@ -154,153 +148,207 @@ class FileShareApp {
 
             if (data.success) {
                 this.currentRoom = code;
-                this.transitionToRoomScreen(); // Animated Transition
+                this.showRoomScreen();
                 this.socket.emit('join-room', code);
                 this.loadRoomData(code, data);
             } else {
-                alert('Connection Failed: ' + data.error);
+                alert('Error: ' + data.error);
             }
         } catch (error) {
-            alert('Network Error: ' + error.message);
+            alert('Failed to join room: ' + error.message);
         }
     }
 
-    // --- ANIMATION FUNCTIONS ---
-
-    shakeElement(element) {
-        gsap.to(element, { x: 10, duration: 0.1, repeat: 3, yoyo: true });
-        element.style.borderColor = "var(--danger)";
-        setTimeout(() => element.style.borderColor = "var(--glass-border)", 500);
-    }
-
-    transitionToRoomScreen() {
-        const tl = gsap.timeline();
-        
-        // Fade out Home
-        tl.to(this.homeScreen, { opacity: 0, y: -20, duration: 0.4, display: 'none' })
-        // Fade in Room
-          .to(this.roomScreen, { display: 'block', opacity: 0, y: 20, duration: 0 }) // Set start pos
-          .to(this.roomScreen, { opacity: 1, y: 0, duration: 0.5, ease: "power2.out" });
-        
-        // Reset UI
+showRoomScreen() {
+        this.homeScreen.classList.remove('active');
+        this.roomScreen.classList.add('active');
         this.roomCodeDisplay.textContent = this.currentRoom;
         this.sharedText.value = '';
         this.fileList.innerHTML = '';
         this.usersList.innerHTML = '';
+
+        // Remove any existing special buttons/banners from previous sessions
+        const existingWarning = document.querySelector('.special-room-warning');
+        if (existingWarning) existingWarning.remove();
         
-        this.setupSpecialRooms();
+        const existingClearBtn = document.querySelector('.clear-all-btn-admin');
+        if (existingClearBtn) existingClearBtn.remove();
+
+        // --- CASE 1: RAM123 (Vault) ---
+        if (this.currentRoom === 'RAM123') {
+            const warning = document.createElement('div');
+            warning.className = 'special-room-warning';
+            warning.style.backgroundColor = '#d4edda'; // Green
+            warning.style.color = '#155724';
+            warning.style.borderColor = '#c3e6cb';
+            warning.textContent = '🛡️ SECURE VAULT: Files here are permanent. Private Room.';
+            this.fileList.parentNode.insertBefore(warning, this.fileList);
+        }
+        
+        // --- CASE 2: RAMRAM (Admin) ---
+        else if (this.currentRoom === 'RAMRAM') {
+            // 1. Add Warning Banner
+            const warning = document.createElement('div');
+            warning.className = 'special-room-warning';
+            warning.style.backgroundColor = '#fff3cd'; // Yellow
+            warning.style.color = '#856404';
+            warning.textContent = '⚠️ ADMIN MODE: Viewing ALL files from ALL rooms.';
+            this.fileList.parentNode.insertBefore(warning, this.fileList);
+
+            // 2. Add Clear All Button
+            this.addClearAllButton();
+        }
+
+        // --- CASE 3: Normal Rooms (HJFDKG etc) ---
+        else {
+             // Do nothing special. 
+             // They cannot see "Secure Vault" msg.
+             // They cannot see "Admin" msg.
+             // They cannot see "Clear All" button.
+        }
     }
 
-    transitionToHomeScreen() {
-        const tl = gsap.timeline();
-
-        // Fade out Room
-        tl.to(this.roomScreen, { opacity: 0, y: 20, duration: 0.4, display: 'none' })
-        // Fade in Home
-          .to(this.homeScreen, { display: 'block', opacity: 0, y: -20, duration: 0 })
-          .to(this.homeScreen, { opacity: 1, y: 0, duration: 0.5, ease: "power2.out" });
-
+    showHomeScreen() {
+        this.roomScreen.classList.remove('active');
+        this.homeScreen.classList.add('active');
         this.roomCodeInput.value = '';
         this.currentRoom = null;
     }
 
-    showRoomScreen() { /* Deprecated by transitionToRoomScreen, but kept for logic structure */ }
-    showHomeScreen() { this.transitionToHomeScreen(); }
-
     leaveRoom() {
         this.socket.emit('leave-room', this.currentRoom);
-        this.transitionToHomeScreen();
-    }
-
-    setupSpecialRooms() {
-        const existingWarning = document.querySelector('.special-room-warning');
-        if (existingWarning) existingWarning.remove();
-        const existingClearBtn = document.querySelector('.clear-all-btn-admin');
-        if (existingClearBtn) existingClearBtn.remove();
-
-        if (this.currentRoom === 'RAM123') {
-            const warning = document.createElement('div');
-            warning.className = 'special-room-warning';
-            warning.textContent = '🛡️ VAULT PROTOCOL: ACTIVE. Files are persistent.';
-            this.fileList.parentNode.insertBefore(warning, this.fileList);
-        } else if (this.currentRoom === 'RAMRAM') {
-            const warning = document.createElement('div');
-            warning.className = 'special-room-warning';
-            warning.style.borderColor = '#ff0055';
-            warning.style.color = '#ff0055';
-            warning.textContent = '⚠️ ROOT ACCESS: GLOBAL FILE VIEW';
-            this.fileList.parentNode.insertBefore(warning, this.fileList);
-            this.addClearAllButton();
-        }
+        this.showHomeScreen();
     }
 
     clearText() {
-        if (confirm('Confirm Purge?')) {
+        if (confirm('Are you sure you want to clear all text?')) {
             this.sharedText.value = '';
-            this.socket.emit('send-text', { roomCode: this.currentRoom, text: '' });
+            this.socket.emit('send-text', {
+                roomCode: this.currentRoom,
+                text: ''
+            });
         }
     }
 
-    addClearAllButton() {
+addClearAllButton() {
+        // Prevent adding duplicate buttons
         if (document.querySelector('.clear-all-btn-admin')) return;
+
         const clearAllBtn = document.createElement('button');
-        clearAllBtn.className = 'btn danger clear-all-btn-admin';
-        clearAllBtn.textContent = '☢️ NUKE DATABASE';
+        clearAllBtn.className = 'btn danger clear-all-btn-admin'; // Add class for easy removal
+        clearAllBtn.textContent = '🗑️ ADMIN: Clear Database';
         clearAllBtn.style.margin = '10px 0';
-        clearAllBtn.addEventListener('click', () => this.clearAllFiles());
+        clearAllBtn.addEventListener('click', () => {
+            this.clearAllFiles();
+        });
+        
         const fileSection = document.querySelector('.file-upload-container');
         fileSection.parentNode.insertBefore(clearAllBtn, fileSection.nextSibling);
     }
 
     async clearAllFiles() {
-        if (this.currentRoom !== 'RAMRAM') return;
-        if (!confirm('⚠️ SYSTEM WARNING: IRREVERSIBLE ACTION. Continue?')) return;
+        // Double check specifically for RAMRAM
+        if (this.currentRoom !== 'RAMRAM') {
+            alert('❌ Unauthorized');
+            return;
+        }
+
+        if (!confirm('⚠️ ADMIN ACTION: This will delete ALL files from ALL rooms globally. Continue?')) return;
 
         try {
-            const response = await fetch(`/api/admin/clear-all/${this.currentRoom}`, { method: 'DELETE' });
+            // Note: We now pass the roomCode in the URL to prove authorization
+            const response = await fetch(`/api/admin/clear-all/${this.currentRoom}`, {
+                method: 'DELETE'
+            });
+
             const data = await response.json();
+
             if (data.success) {
                 this.fileList.innerHTML = '';
-                alert('✅ System Purged.');
+                alert('✅ Database wiped successfully');
                 this.socket.emit('all-files-cleared');
             } else {
-                alert('Error: ' + data.error);
+                alert('Failed: ' + data.error);
             }
         } catch (error) {
             alert('Error: ' + error.message);
         }
     }
 
-    async deleteFile(filename, roomCode, fileElement) {
-        if (!confirm('Delete file packet?')) return;
+    async clearAllFiles() {
+        if (!confirm('⚠️ DANGER! This will delete ALL files from ALL rooms. Are you absolutely sure?')) {
+            return;
+        }
+
+        if (!confirm('⚠️ THIS ACTION CANNOT BE UNDONE! All files will be permanently deleted.')) {
+            return;
+        }
+
         try {
-            const response = await fetch(`/api/rooms/${roomCode}/files/${filename}`, { method: 'DELETE' });
+            const response = await fetch('/api/admin/clear-all', {
+                method: 'DELETE'
+            });
+
             const data = await response.json();
+
             if (data.success) {
-                // GSAP removal animation
-                gsap.to(fileElement, {
-                    opacity: 0, x: -50, duration: 0.3,
-                    onComplete: () => fileElement.remove()
-                });
-                this.socket.emit('file-deleted', { roomCode, filename });
+                // Clear file list UI
+                this.fileList.innerHTML = '';
+                alert('✅ All files cleared successfully');
+                
+                // Notify all users
+                this.socket.emit('all-files-cleared');
+            } else {
+                alert('Clear all failed: ' + data.error);
             }
-        } catch (error) { alert('Delete error: ' + error.message); }
+        } catch (error) {
+            alert('Clear all error: ' + error.message);
+        }
+    }
+
+    async deleteFile(filename, roomCode, fileElement) {
+        if (!confirm('Are you sure you want to delete this file?')) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/rooms/${roomCode}/files/${filename}`, {
+                method: 'DELETE'
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                // Remove file from UI
+                fileElement.remove();
+                
+                // Notify other users in the room to remove the file
+                this.socket.emit('file-deleted', {
+                    roomCode: roomCode,
+                    filename: filename
+                });
+                
+                alert('✅ File deleted successfully');
+            } else {
+                alert('Delete failed: ' + data.error);
+            }
+        } catch (error) {
+            alert('Delete error: ' + error.message);
+        }
     }
 
     async uploadFiles() {
         const files = this.fileInput.files;
         if (files.length === 0) {
-            alert('No data packets selected.');
+            alert('Please select files to upload');
             return;
         }
 
-        const uploadBtn = document.getElementById('uploadBtn');
-        const originalText = uploadBtn.textContent;
-        uploadBtn.textContent = 'UPLOADING...';
-        
         try {
             const formData = new FormData();
-            Array.from(files).forEach(file => formData.append('files', file));
+            Array.from(files).forEach(file => {
+                formData.append('files', file);
+            });
 
             const response = await fetch(`/api/rooms/${this.currentRoom}/upload`, {
                 method: 'POST',
@@ -308,17 +356,22 @@ class FileShareApp {
             });
 
             const data = await response.json();
+
             if (data.success) {
-                data.files.forEach(file => this.addFileToList(file.originalName, file.filename));
+                // Add files to the list
+                data.files.forEach(file => {
+                    this.addFileToList(file.originalName, file.filename);
+                });
+                
+                alert(`✅ ${data.message}`);
             } else {
                 alert('Upload failed: ' + data.error);
             }
         } catch (error) {
             alert('Upload error: ' + error.message);
         }
-        
-        uploadBtn.textContent = originalText;
-        this.fileInput.value = '';
+
+        this.fileInput.value = ''; // Clear the input
     }
 
     addFileToList(originalName, filename) {
@@ -327,30 +380,31 @@ class FileShareApp {
         fileItem.innerHTML = `
             <div class="file-info">
                 <strong>${originalName}</strong>
-                <small style="color: var(--text-muted); display:block;">Encrypted • Just now</small>
+                <small>Uploaded just now</small>
             </div>
             <div class="file-actions">
-                <button class="btn primary download-btn" data-filename="${filename}">Download</button>
+                <button class="btn secondary download-btn" data-filename="${filename}">Download</button>
                 <button class="btn danger delete-btn" data-filename="${filename}" data-room="${this.currentRoom}">Delete</button>
             </div>
         `;
-
-        fileItem.querySelector('.download-btn').addEventListener('click', () => this.downloadFile(filename, originalName));
-        fileItem.querySelector('.delete-btn').addEventListener('click', () => this.deleteFile(filename, this.currentRoom, fileItem));
+        
+        // Add download functionality
+        const downloadBtn = fileItem.querySelector('.download-btn');
+        downloadBtn.addEventListener('click', () => {
+            this.downloadFile(filename, originalName);
+        });
+        
+        // Add delete functionality
+        const deleteBtn = fileItem.querySelector('.delete-btn');
+        deleteBtn.addEventListener('click', () => {
+            this.deleteFile(filename, this.currentRoom, fileItem);
+        });
         
         this.fileList.appendChild(fileItem);
-        this.animateItemEntry(fileItem);
-    }
-
-    // Helper to animate items appearing in the list
-    animateItemEntry(element) {
-        gsap.fromTo(element, 
-            { opacity: 0, x: 20 },
-            { opacity: 1, x: 0, duration: 0.4, ease: "back.out(1.7)" }
-        );
     }
 
     downloadFile(filename, originalName) {
+        // Create a temporary link to trigger download
         const link = document.createElement('a');
         link.href = `/api/files/${filename}`;
         link.download = originalName;
@@ -362,39 +416,61 @@ class FileShareApp {
     addUserToList(userId) {
         const userItem = document.createElement('div');
         userItem.className = 'user-item';
-        userItem.textContent = `Node: ${userId.substr(0,5)}...`; // Make ID look like a hash
+        userItem.textContent = `User: ${userId}`;
         userItem.id = `user-${userId}`;
         this.usersList.appendChild(userItem);
     }
 
     removeUserFromList(userId) {
         const userElement = document.getElementById(`user-${userId}`);
-        if (userElement) userElement.remove();
+        if (userElement) {
+            userElement.remove();
+        }
     }
 
     updateUsersList(users) {
         this.usersList.innerHTML = '';
-        users.forEach(user => this.addUserToList(user));
+        users.forEach(user => {
+            this.addUserToList(user);
+        });
     }
 
     async loadRoomData(roomCode, roomData = null) {
         try {
-            let data = roomData;
-            if (!data) {
+            let data;
+            if (roomData) {
+                data = roomData;
+            } else {
                 const response = await fetch(`/api/rooms/${roomCode}`);
                 data = await response.json();
             }
+            
             if (data.success && data.room) {
-                if (data.room.texts?.length > 0) {
+                // Load existing room data
+                if (data.room.texts && data.room.texts.length > 0) {
                     this.sharedText.value = data.room.texts[data.room.texts.length - 1].content;
                 }
-                const filesToLoad = (roomCode === 'RAMRAM' && data.allFiles) ? data.allFiles : data.room.files;
-                if (filesToLoad) {
-                    filesToLoad.forEach(file => this.addFileToList(file.originalName, file.filename));
+                
+                // Load existing files - handle RAMRAM room specially
+                if (roomCode === 'RAMRAM' && data.allFiles) {
+                    // For RAMRAM room, load all files from all rooms
+                    data.allFiles.forEach(file => {
+                        this.addFileToList(file.originalName, file.filename);
+                    });
+                } else if (data.room.files && data.room.files.length > 0) {
+                    // For normal rooms, load only room files
+                    data.room.files.forEach(file => {
+                        this.addFileToList(file.originalName, file.filename);
+                    });
                 }
             }
-        } catch (error) { console.error('Error loading data:', error); }
+        } catch (error) {
+            console.error('Error loading room data:', error);
+        }
     }
 }
 
-document.addEventListener('DOMContentLoaded', () => new FileShareApp());
+// Initialize the app when the page loads
+document.addEventListener('DOMContentLoaded', () => {
+    new FileShareApp();
+});

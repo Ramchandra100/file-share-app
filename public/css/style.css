@@ -1,3 +1,14 @@
+:root {
+    --primary: #00f2ff; /* Cyan */
+    --secondary: #bc13fe; /* Neon Purple */
+    --danger: #ff0055;
+    --bg-dark: #0a0a12;
+    --glass-bg: rgba(16, 20, 35, 0.7);
+    --glass-border: rgba(255, 255, 255, 0.1);
+    --text-main: #ffffff;
+    --text-muted: #a0a0a0;
+}
+
 * {
     margin: 0;
     padding: 0;
@@ -5,393 +16,270 @@
 }
 
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    font-family: 'Inter', sans-serif;
+    background-color: var(--bg-dark);
+    color: var(--text-main);
     min-height: 100vh;
-    padding: 20px;
+    overflow-x: hidden;
+}
+
+/* Background Effects */
+#vanta-bg {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: -2;
+}
+
+.overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: radial-gradient(circle at center, transparent 0%, #000 100%);
+    z-index: -1;
+    pointer-events: none;
 }
 
 .container {
-    max-width: 800px;
+    max-width: 900px;
     margin: 0 auto;
+    padding: 20px;
+    position: relative;
+    z-index: 1;
 }
 
+/* Typography */
+h1, h2, h3 {
+    font-family: 'Orbitron', sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+/* Glitch Text Effect */
+.glitch-text {
+    font-size: 3.5em;
+    font-weight: 900;
+    text-align: center;
+    margin-bottom: 40px;
+    position: relative;
+    color: var(--text-main);
+    text-shadow: 0 0 10px var(--primary);
+}
+
+/* Glassmorphism Panels */
+.glass-panel {
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    padding: 30px;
+    margin-bottom: 20px;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.glass-panel:hover {
+    box-shadow: 0 8px 32px 0 rgba(0, 242, 255, 0.1);
+    border-color: rgba(0, 242, 255, 0.3);
+}
+
+/* Screens */
 .screen {
     display: none;
+    opacity: 0; /* For GSAP */
 }
 
 .screen.active {
     display: block;
+    opacity: 1;
 }
 
-/* Home Screen */
-#homeScreen {
-    text-align: center;
-    padding: 50px 20px;
-}
-
-#homeScreen h1 {
-    color: white;
-    font-size: 3em;
-    margin-bottom: 30px;
-    text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-}
-
-.card {
-    background: white;
-    padding: 40px;
-    border-radius: 15px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-}
-
-.btn {
-    padding: 12px 24px;
-    border: none;
+/* Inputs & Textareas */
+input, textarea {
+    width: 100%;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--glass-border);
     border-radius: 8px;
+    padding: 15px;
+    color: var(--primary);
+    font-family: 'Inter', sans-serif;
     font-size: 16px;
-    cursor: pointer;
     transition: all 0.3s ease;
-    margin: 5px;
 }
 
-.btn.primary {
-    background: #667eea;
-    color: white;
-}
-
-.btn.secondary {
-    background: #764ba2;
-    color: white;
-}
-
-.btn.danger {
-    background: #e74c3c;
-    color: white;
-}
-
-.btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-}
-
-.divider {
-    margin: 20px 0;
-    color: #666;
-    font-weight: bold;
-}
-
-.join-form {
-    display: flex;
-    gap: 10px;
-    justify-content: center;
-    align-items: center;
+input:focus, textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 15px rgba(0, 242, 255, 0.2);
 }
 
 #roomCodeInput {
-    padding: 12px;
-    border: 2px solid #ddd;
-    border-radius: 8px;
-    font-size: 16px;
-    text-transform: uppercase;
     text-align: center;
-    letter-spacing: 2px;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 24px;
+    letter-spacing: 5px;
+    text-transform: uppercase;
 }
 
-/* Room Screen */
-#roomScreen {
-    background: white;
-    border-radius: 15px;
+/* Buttons */
+.btn {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 4px;
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 700;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    transition: all 0.3s ease;
+    position: relative;
     overflow: hidden;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
 }
 
-.room-header {
-    background: #667eea;
+.btn.primary {
+    background: transparent;
+    border: 1px solid var(--primary);
+    color: var(--primary);
+    box-shadow: 0 0 10px rgba(0, 242, 255, 0.1);
+}
+
+.btn.primary:hover {
+    background: var(--primary);
+    color: #000;
+    box-shadow: 0 0 20px var(--primary);
+}
+
+.btn.secondary {
+    background: transparent;
+    border: 1px solid var(--secondary);
+    color: var(--secondary);
+}
+
+.btn.secondary:hover {
+    background: var(--secondary);
+    color: #fff;
+    box-shadow: 0 0 20px var(--secondary);
+}
+
+.btn.danger {
+    background: rgba(255, 0, 85, 0.1);
+    border: 1px solid var(--danger);
+    color: var(--danger);
+}
+
+.btn.danger:hover {
+    background: var(--danger);
     color: white;
-    padding: 20px;
+    box-shadow: 0 0 15px var(--danger);
+}
+
+/* Join Form */
+.join-form {
+    display: flex;
+    gap: 15px;
+    flex-direction: column;
+}
+
+.divider {
+    text-align: center;
+    margin: 20px 0;
+    position: relative;
+}
+
+.divider span {
+    background: transparent;
+    color: var(--text-muted);
+    font-family: 'Orbitron';
+    padding: 0 10px;
+}
+
+/* Room Header */
+.room-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
 }
 
-.room-content {
-    padding: 20px;
-}
-
-.section {
-    margin-bottom: 30px;
-    padding: 20px;
-    border: 2px solid #f0f0f0;
-    border-radius: 10px;
-}
-
-.section h3 {
-    margin-bottom: 15px;
-    color: #333;
-}
-
-.text-area-container {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
-#sharedText {
-    width: 100%;
-    height: 150px;
-    padding: 15px;
-    border: 2px solid #ddd;
-    border-radius: 8px;
-    font-family: inherit;
-    font-size: 14px;
-    resize: vertical;
-}
-
-.file-upload-container {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-    margin-bottom: 15px;
-}
-
-#fileInput {
-    flex: 1;
-    padding: 10px;
-    border: 2px dashed #ddd;
-    border-radius: 8px;
-}
-
-.file-list, .users-list {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
-.file-item, .user-item {
-    padding: 10px 15px;
-    background: #f8f9fa;
-    border-radius: 8px;
-    border-left: 4px solid #667eea;
-}
-
-/* Responsive */
-@media (max-width: 600px) {
-    .join-form {
-        flex-direction: column;
-    }
-    
-    .room-header {
-        flex-direction: column;
-        gap: 10px;
-    }
-}* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
-
-body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    min-height: 100vh;
-    padding: 20px;
-}
-
-.container {
-    max-width: 800px;
-    margin: 0 auto;
-}
-
-.screen {
-    display: none;
-}
-
-.screen.active {
-    display: block;
-}
-
-/* Home Screen */
-#homeScreen {
-    text-align: center;
-    padding: 50px 20px;
-}
-
-#homeScreen h1 {
-    color: white;
-    font-size: 3em;
-    margin-bottom: 30px;
-    text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-}
-
-.card {
-    background: white;
-    padding: 40px;
-    border-radius: 15px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-}
-
-.btn {
-    padding: 12px 24px;
-    border: none;
-    border-radius: 8px;
-    font-size: 16px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    margin: 5px;
-}
-
-.btn.primary {
-    background: #667eea;
-    color: white;
-}
-
-.btn.secondary {
-    background: #764ba2;
-    color: white;
-}
-
-.btn.danger {
-    background: #e74c3c;
-    color: white;
-}
-
-.btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-}
-
-.divider {
-    margin: 20px 0;
-    color: #666;
-    font-weight: bold;
-}
-
-.join-form {
-    display: flex;
-    gap: 10px;
-    justify-content: center;
-    align-items: center;
-}
-
-#roomCodeInput {
-    padding: 12px;
-    border: 2px solid #ddd;
-    border-radius: 8px;
-    font-size: 16px;
-    text-transform: uppercase;
-    text-align: center;
+.header-info .label {
+    font-size: 10px;
+    color: var(--secondary);
     letter-spacing: 2px;
 }
 
-/* Room Screen */
-#roomScreen {
-    background: white;
-    border-radius: 15px;
-    overflow: hidden;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+.neon-text {
+    color: #fff;
+    text-shadow: 0 0 5px var(--primary), 0 0 10px var(--primary);
+    font-size: 2em;
 }
 
-.room-header {
-    background: #667eea;
-    color: white;
-    padding: 20px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.room-content {
-    padding: 20px;
-}
-
-.section {
-    margin-bottom: 30px;
-    padding: 20px;
-    border: 2px solid #f0f0f0;
-    border-radius: 10px;
-}
-
-.section h3 {
-    margin-bottom: 15px;
-    color: #333;
-}
-
-.text-area-container {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
-#sharedText {
-    width: 100%;
-    height: 150px;
-    padding: 15px;
-    border: 2px solid #ddd;
-    border-radius: 8px;
-    font-family: inherit;
-    font-size: 14px;
-    resize: vertical;
-}
-
-.file-upload-container {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-    margin-bottom: 15px;
-}
-
-#fileInput {
-    flex: 1;
-    padding: 10px;
-    border: 2px dashed #ddd;
-    border-radius: 8px;
-}
-
+/* Lists */
 .file-list, .users-list {
     display: flex;
     flex-direction: column;
     gap: 10px;
+    max-height: 400px;
+    overflow-y: auto;
 }
 
 .file-item, .user-item {
-    padding: 10px 15px;
-    background: #f8f9fa;
-    border-radius: 8px;
-    border-left: 4px solid #667eea;
+    background: rgba(255, 255, 255, 0.03);
+    border-left: 3px solid var(--primary);
+    padding: 15px;
+    border-radius: 0 8px 8px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.2s;
 }
 
-/* Responsive */
-@media (max-width: 600px) {
-    .join-form {
-        flex-direction: column;
-    }
-    
-    .room-header {
-        flex-direction: column;
-        gap: 10px;
-    }
+.file-item:hover {
+    background: rgba(255, 255, 255, 0.08);
+    transform: translateX(5px);
 }
 
-/* Add to your existing CSS */
 .file-actions {
     display: flex;
     gap: 10px;
-    margin-top: 10px;
 }
 
-.file-actions .btn {
-    padding: 8px 16px;
-    font-size: 14px;
+/* Scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+}
+::-webkit-scrollbar-track {
+    background: rgba(0,0,0,0.1);
+}
+::-webkit-scrollbar-thumb {
+    background: var(--primary);
+    border-radius: 4px;
 }
 
-/* Special styling for RAMRAM room */
+/* Special Room Warning */
 .special-room-warning {
-    background: #ffeb3b;
-    color: #333;
-    padding: 10px;
-    border-radius: 5px;
-    margin: 10px 0;
+    background: rgba(255, 235, 59, 0.1);
+    color: #ffe082;
+    border: 1px solid #ffe082;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
     text-align: center;
-    font-weight: bold;
-    border: 2px solid #ffc107;
+    font-family: 'Orbitron';
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(255, 224, 130, 0.4); }
+    70% { box-shadow: 0 0 0 10px rgba(255, 224, 130, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(255, 224, 130, 0); }
+}
+
+@media (min-width: 600px) {
+    .join-form {
+        flex-direction: row;
+    }
 }
