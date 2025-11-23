@@ -6,10 +6,11 @@ const cors = require('cors');
 const path = require('path');
 const mongoose = require('mongoose');
 const multer = require('multer');
-const fs = require('fs');
+const { GridFSBucket } = require('mongodb'); // Native MongoDB driver
+const stream = require('stream'); // Native Node.js stream
 require('dotenv').config();
 
-// Initialize our app
+// Initialize app
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
@@ -19,12 +20,9 @@ const io = socketIo(server, {
   }
 });
 
-// Debug: Check if environment variable is loaded
-console.log('MongoDB URI from environment:', process.env.MONGODB_URI ? 'Present' : 'NOT FOUND');
-
-// Connect to MongoDB - Use environment variable only
+// --- DATABASE CONNECTION & GRIDFS SETUP ---
 const mongoURI = process.env.MONGODB_URI;
-console.log('Connecting to MongoDB with URI:', mongoURI ? 'URI provided' : 'No URI found');
+let gridfsBucket;
 
 if (!mongoURI) {
   console.error('❌ MONGODB_URI environment variable is required');
@@ -32,53 +30,40 @@ if (!mongoURI) {
 }
 
 mongoose.connect(mongoURI)
-  .then(() => console.log('✅ Connected to MongoDB!'))
-  .catch(err => {
-    console.error('❌ MongoDB connection error:', err.message);
-    console.log('Please check:');
-    console.log('1. MONGODB_URI environment variable');
-    console.log('2. Database user exists in MongoDB Atlas');
-    console.log('3. Network Access allows 0.0.0.0/0');
-  });
+  .then((client) => {
+    console.log('✅ Connected to MongoDB!');
+    // Initialize GridFS Bucket
+    const db = mongoose.connection.db;
+    gridfsBucket = new GridFSBucket(db, { bucketName: 'uploads' });
+    console.log('✅ GridFS Bucket initialized');
+  })
+  .catch(err => console.error('❌ MongoDB connection error:', err));
 
-// Configure multer for file uploads
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    // Create uploads directory if it doesn't exist
-    if (!fs.existsSync('uploads')) {
-      fs.mkdirSync('uploads');
-    }
-    cb(null, 'uploads/')
-  },
-  filename: function (req, file, cb) {
-    // Create unique filename with timestamp
-    const uniqueName = Date.now() + '-' + Math.round(Math.random() * 1E9) + '-' + file.originalname;
-    cb(null, uniqueName);
-  }
-});
-
+// --- MULTER CONFIG (MEMORY STORAGE) ---
+// We store file in RAM temporarily, then stream to MongoDB
+const storage = multer.memoryStorage();
 const upload = multer({
   storage: storage,
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB file size limit
+    fileSize: 10 * 1024 * 1024, // 10MB limit (Important for RAM usage)
   }
 });
 
-// Middleware - SINGLE CORS CONFIGURATION
+// Middleware
 app.use(cors({
   origin: ["https://file-share-app-xwrr.onrender.com", "http://localhost:5000"],
   credentials: true
 }));
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
-app.use('/uploads', express.static(path.join(__dirname, 'uploads'))); // Serve uploaded files
 
 // Room model
 const roomSchema = new mongoose.Schema({
   roomCode: { type: String, unique: true },
   createdAt: { type: Date, default: Date.now },
   files: [{
-    filename: String,
+    filename: String,      // Stored in GridFS
+    fileId: mongoose.Schema.Types.ObjectId, // GridFS ID
     originalName: String,
     uploadTime: { type: Date, default: Date.now },
     fileSize: Number
@@ -92,34 +77,28 @@ const roomSchema = new mongoose.Schema({
 
 const Room = mongoose.model('Room', roomSchema);
 
-// Routes
+// --- ROUTES ---
+
 app.get('/', (req, res) => {
-  res.send('File Share App Server is Running with MongoDB!');
+  res.send('File Share App Server is Running with MongoDB GridFS!');
 });
 
-// Create or join a room
+// Create or join room
 app.post('/api/rooms', async (req, res) => {
   try {
     const { roomCode } = req.body;
-
     let room = await Room.findOne({ roomCode });
 
     if (!room) {
       room = new Room({ roomCode });
       await room.save();
-      console.log('New room created:', roomCode);
     }
 
-    // Special handling for RAMRAM room - load all files
+    // Special handling for RAMRAM (Admin View)
     if (roomCode === 'RAMRAM') {
       const allRooms = await Room.find({});
       const allFiles = allRooms.flatMap(room => room.files);
-      
-      return res.json({ 
-        success: true, 
-        room: room,
-        allFiles: allFiles // Send all files from all rooms
-      });
+      return res.json({ success: true, room: room, allFiles: allFiles });
     }
 
     res.json({ success: true, room });
@@ -134,20 +113,12 @@ app.get('/api/rooms/:roomCode', async (req, res) => {
     const roomCode = req.params.roomCode;
     let room = await Room.findOne({ roomCode });
     
-    if (!room) {
-      return res.status(404).json({ success: false, error: 'Room not found' });
-    }
+    if (!room) return res.status(404).json({ success: false, error: 'Room not found' });
 
-    // Special handling for RAMRAM room - load all files
     if (roomCode === 'RAMRAM') {
       const allRooms = await Room.find({});
-      const allFiles = allRooms.flatMap(room => room.files);
-      
-      return res.json({ 
-        success: true, 
-        room: room,
-        allFiles: allFiles // Send all files from all rooms
-      });
+      const allFiles = allRooms.flatMap(r => r.files);
+      return res.json({ success: true, room: room, allFiles: allFiles });
     }
 
     res.json({ success: true, room });
@@ -156,213 +127,218 @@ app.get('/api/rooms/:roomCode', async (req, res) => {
   }
 });
 
-// File upload route
+// Upload File (To GridFS)
 app.post('/api/rooms/:roomCode/upload', upload.array('files'), async (req, res) => {
   try {
     const roomCode = req.params.roomCode;
     const files = req.files;
 
-    if (!files || files.length === 0) {
-      return res.status(400).json({ success: false, error: 'No files uploaded' });
-    }
+    if (!files || files.length === 0) return res.status(400).json({ success: false, error: 'No files' });
+    if (!gridfsBucket) return res.status(500).json({ success: false, error: 'Database not ready' });
 
     const room = await Room.findOne({ roomCode });
-    if (!room) {
-      return res.status(404).json({ success: false, error: 'Room not found' });
-    }
+    if (!room) return res.status(404).json({ success: false, error: 'Room not found' });
 
-    // Add files to room
-    files.forEach(file => {
-      room.files.push({
-        filename: file.filename,
+    const uploadedFiles = [];
+
+    // Process each file
+    for (const file of files) {
+      const uniqueName = Date.now() + '-' + Math.round(Math.random() * 1E9) + '-' + file.originalname;
+      
+      // Create a readable stream from the buffer
+      const bufferStream = new stream.PassThrough();
+      bufferStream.end(file.buffer);
+
+      // Upload stream to GridFS
+      const uploadStream = gridfsBucket.openUploadStream(uniqueName, {
+        metadata: { originalName: file.originalname, roomCode: roomCode }
+      });
+
+      // Pipe buffer to GridFS
+      await new Promise((resolve, reject) => {
+        bufferStream.pipe(uploadStream)
+          .on('error', reject)
+          .on('finish', resolve);
+      });
+
+      // Add to room data
+      const fileData = {
+        filename: uniqueName,
+        fileId: uploadStream.id,
         originalName: file.originalname,
         uploadTime: new Date(),
         fileSize: file.size
-      });
-    });
+      };
+
+      room.files.push(fileData);
+      uploadedFiles.push(fileData);
+    }
 
     await room.save();
 
-    // Notify all users in the room about new files
-    io.to(roomCode).emit('new-files', {
-      files: files.map(file => ({
-        filename: file.filename,
-        originalName: file.originalname,
-        uploadTime: new Date(),
-        fileSize: file.size
-      }))
-    });
+    // Notify users
+    io.to(roomCode).emit('new-files', { files: uploadedFiles });
 
-    res.json({
-      success: true,
-      message: `${files.length} file(s) uploaded successfully`,
-      files: files.map(file => ({
-        filename: file.filename,
-        originalName: file.originalname,
-        fileSize: file.size
-      }))
-    });
+    res.json({ success: true, message: 'Uploaded successfully', files: uploadedFiles });
 
   } catch (error) {
+    console.error('Upload error:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// File download route with original filename - FIXED VERSION
+// Download File (From GridFS)
 app.get('/api/files/:filename', async (req, res) => {
   try {
     const filename = req.params.filename;
-    const filePath = path.join(__dirname, 'uploads', filename);
-    
-    // Check if file exists physically
-    if (!fs.existsSync(filePath)) {
-      return res.status(404).json({ success: false, error: 'File not found on server' });
+    if (!gridfsBucket) return res.status(500).json({ success: false, error: 'Database not ready' });
+
+    // Find file in GridFS
+    const files = await gridfsBucket.find({ filename }).toArray();
+    if (!files || files.length === 0) {
+      return res.status(404).json({ success: false, error: 'File not found' });
     }
 
-    // Search ALL rooms for this file
-    const room = await Room.findOne({ 'files.filename': filename });
+    const file = files[0];
     
-    if (room) {
-      const fileData = room.files.find(f => f.filename === filename);
-      const originalName = fileData ? fileData.originalName : filename;
-      
-      // Set headers for download with original filename
-      res.setHeader('Content-Disposition', `attachment; filename="${originalName}"`);
-      res.sendFile(filePath);
-    } else {
-      // File exists physically but not in database - send with stored filename
-      console.warn(`File ${filename} exists but not found in database`);
-      res.download(filePath);
-    }
+    // Set headers
+    res.setHeader('Content-Disposition', `attachment; filename="${file.metadata ? file.metadata.originalName : filename}"`);
+    res.setHeader('Content-Type', 'application/octet-stream');
+
+    // Stream to response
+    gridfsBucket.openDownloadStreamByName(filename).pipe(res);
+
   } catch (error) {
-    console.error('File download error:', error);
+    console.error('Download error:', error);
     res.status(500).json({ success: false, error: 'Download failed' });
   }
 });
 
-// Delete file route
+// Delete File (From GridFS)
 app.delete('/api/rooms/:roomCode/files/:filename', async (req, res) => {
   try {
     const { roomCode, filename } = req.params;
+    if (!gridfsBucket) return res.status(500).json({ success: false, error: 'Database not ready' });
 
     const room = await Room.findOne({ roomCode });
-    if (!room) {
-      return res.status(404).json({ success: false, error: 'Room not found' });
+    if (!room) return res.status(404).json({ success: false, error: 'Room not found' });
+
+    // Find file in GridFS to get ID
+    const files = await gridfsBucket.find({ filename }).toArray();
+    if (files.length > 0) {
+      await gridfsBucket.delete(files[0]._id);
     }
 
-    // Remove file from database
-    room.files = room.files.filter(file => file.filename !== filename);
+    // Remove from Room DB
+    room.files = room.files.filter(f => f.filename !== filename);
     await room.save();
 
-    // Delete physical file
-    const filePath = path.join(__dirname, 'uploads', filename);
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-    }
-
-    res.json({ success: true, message: 'File deleted successfully' });
+    res.json({ success: true, message: 'File deleted' });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// Clear all files (only for RAMRAM room)
+// Clear All (RAMRAM Admin)
 app.delete('/api/admin/clear-all', async (req, res) => {
   try {
-    // Clear all files from database
+    if (!gridfsBucket) return res.status(500).json({ success: false, error: 'Database not ready' });
+
+    // Drop the entire files bucket
+    await gridfsBucket.drop();
+    // Re-initialize bucket
+    const db = mongoose.connection.db;
+    gridfsBucket = new GridFSBucket(db, { bucketName: 'uploads' });
+
+    // Clear file arrays in all rooms
     await Room.updateMany({}, { $set: { files: [] } });
-    
-    // Delete all physical files
-    const uploadsDir = path.join(__dirname, 'uploads');
-    if (fs.existsSync(uploadsDir)) {
-      const files = fs.readdirSync(uploadsDir);
-      files.forEach(file => {
-        fs.unlinkSync(path.join(uploadsDir, file));
-      });
-    }
-    
-    // Notify all rooms about the clearance
+
     io.emit('all-files-cleared');
-    
-    res.json({ success: true, message: 'All files cleared successfully' });
+    res.json({ success: true, message: 'All files cleared' });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// Helper function to get users in a room
+// --- SOCKET.IO ---
 function getUsersInRoom(roomCode) {
   const room = io.sockets.adapter.rooms.get(roomCode);
   return room ? Array.from(room) : [];
 }
 
-// Real-time socket connections
 io.on('connection', (socket) => {
-  console.log('A user connected:', socket.id);
-
   socket.on('join-room', (roomCode) => {
     socket.join(roomCode);
-    console.log(`User ${socket.id} joined room: ${roomCode}`);
-
-    // Notify others in the room
     socket.to(roomCode).emit('user-joined', socket.id);
-
-    // Send current users in room to the new user
-    const roomUsers = getUsersInRoom(roomCode);
-    socket.emit('users-in-room', roomUsers);
+    socket.emit('users-in-room', getUsersInRoom(roomCode));
   });
 
-  // Save text to database and broadcast
   socket.on('send-text', async (data) => {
-    try {
-      // Save text to database
-      const room = await Room.findOne({ roomCode: data.roomCode });
-      if (room) {
-        room.texts.push({
-          content: data.text,
-          addedBy: socket.id,
-          addedAt: new Date()
-        });
-        await room.save();
-      }
-
-      // Broadcast to other users in the room
-      socket.to(data.roomCode).emit('receive-text', data);
-      console.log(`Text saved and broadcast in room ${data.roomCode}`);
-    } catch (error) {
-      console.error('Error saving text:', error);
+    const room = await Room.findOne({ roomCode: data.roomCode });
+    if (room) {
+      room.texts.push({ content: data.text, addedBy: socket.id });
+      await room.save();
     }
+    socket.to(data.roomCode).emit('receive-text', data);
   });
 
-  // Handle file deletion notifications
   socket.on('file-deleted', (data) => {
-    // Notify other users in the room about file deletion
     socket.to(data.roomCode).emit('file-deleted', data);
-    console.log(`File deleted in room ${data.roomCode}: ${data.filename}`);
-  });
-
-  // Handle all files cleared notification
-  socket.on('all-files-cleared', () => {
-    // Notify all users that all files were cleared
-    io.emit('all-files-cleared');
-    console.log('All files cleared notification sent');
   });
 
   socket.on('leave-room', (roomCode) => {
     socket.leave(roomCode);
     socket.to(roomCode).emit('user-left', socket.id);
-    console.log(`User ${socket.id} left room: ${roomCode}`);
-  });
-
-  socket.on('disconnect', () => {
-    console.log('User disconnected:', socket.id);
   });
 });
 
-// Set the port
-const PORT = process.env.PORT || 5000;
+// --- AUTOMATIC CLEANUP SYSTEM (Updated for GridFS) ---
+const CLEANUP_INTERVAL = 60 * 60 * 1000; // 1 hour
+const FILE_LIFETIME = 24 * 60 * 60 * 1000; // 24 hours
 
-// Start the server
+setInterval(async () => {
+  if (!gridfsBucket) return;
+  
+  try {
+    console.log('🧹 Running cleanup job...');
+    const rooms = await Room.find({});
+    const now = Date.now();
+
+    for (const room of rooms) {
+      // 🛡️ SKIP SPECIAL ROOMS
+      if (room.roomCode === 'RAM123' || room.roomCode === 'RAMRAM') continue;
+
+      const newFilesList = [];
+      let filesChanged = false;
+
+      for (const file of room.files) {
+        const fileAge = now - new Date(file.uploadTime).getTime();
+
+        if (fileAge > FILE_LIFETIME) {
+          // Delete from GridFS
+          const files = await gridfsBucket.find({ filename: file.filename }).toArray();
+          if (files.length > 0) {
+            await gridfsBucket.delete(files[0]._id);
+            console.log(`🗑️ Auto-deleted from DB: ${file.originalName}`);
+          }
+          filesChanged = true;
+        } else {
+          newFilesList.push(file);
+        }
+      }
+
+      if (filesChanged) {
+        room.files = newFilesList;
+        await room.save();
+        io.to(room.roomCode).emit('files-expired');
+      }
+    }
+  } catch (error) {
+    console.error('Cleanup job error:', error);
+  }
+}, CLEANUP_INTERVAL);
+
+const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });

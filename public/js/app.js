@@ -53,6 +53,16 @@ class FileShareApp {
     }
 
     initializeSocketEvents() {
+
+        // ADD THIS NEW EVENT LISTENER:
+        this.socket.on('files-expired', () => {
+            console.log('Refreshing file list (cleanup occurred)');
+            if (this.currentRoom) {
+                // Reload data to show updated file list
+                this.loadRoomData(this.currentRoom);
+            }
+        });
+
         // Handle incoming real-time text
         this.socket.on('receive-text', (data) => {
             this.sharedText.value = data.text;
@@ -156,6 +166,18 @@ class FileShareApp {
         this.sharedText.value = '';
         this.fileList.innerHTML = '';
         this.usersList.innerHTML = '';
+
+        // --- ADD THIS BLOCK ---
+        // Special handling for RAM123 (Safe Vault)
+        if (this.currentRoom === 'RAM123') {
+            const warning = document.createElement('div');
+            warning.className = 'special-room-warning';
+            warning.style.backgroundColor = '#d4edda'; // Green color
+            warning.style.color = '#155724';
+            warning.style.borderColor = '#c3e6cb';
+            warning.textContent = '🛡️ SECURE VAULT: Files in this room are saved permanently.';
+            this.fileList.parentNode.insertBefore(warning, this.fileList);
+        }
         
         // Add Clear All button for RAMRAM room
         if (this.currentRoom === 'RAMRAM') {
