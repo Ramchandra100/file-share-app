@@ -112,6 +112,14 @@ input, textarea {
     transition: all 0.3s ease;
 }
 
+/* --- FIX START: Text Area Height --- */
+textarea#sharedText {
+    min-height: 250px; /* Increased height significantly */
+    resize: vertical;  /* Allows user to drag to resize if needed */
+    line-height: 1.5;
+}
+/* --- FIX END --- */
+
 input:focus, textarea:focus {
     outline: none;
     border-color: var(--primary);
@@ -176,6 +184,19 @@ input:focus, textarea:focus {
     background: var(--danger);
     color: white;
     box-shadow: 0 0 15px var(--danger);
+}
+
+.btn.danger-outline {
+    background: transparent;
+    border: 1px solid var(--danger);
+    color: var(--danger);
+    margin-top: 10px;
+    width: 100%;
+}
+
+.btn.danger-outline:hover {
+    background: var(--danger);
+    color: #fff;
 }
 
 /* Join Form */
@@ -283,3 +304,73 @@ input:focus, textarea:focus {
         flex-direction: row;
     }
 }
+
+/* --- FIX START: Mobile Responsive Improvements --- */
+@media (max-width: 768px) {
+    .container {
+        padding: 10px;
+        width: 100%;
+    }
+    
+    .glitch-text {
+        font-size: 2em; /* Smaller title on mobile */
+        margin-bottom: 20px;
+    }
+
+    .glass-panel {
+        padding: 20px 15px; /* Reduce padding inside cards */
+    }
+
+    /* Stack the Room Header (Code on top, Button on bottom) */
+    .room-header {
+        flex-direction: column;
+        gap: 15px;
+        text-align: center;
+    }
+
+    .neon-text {
+        font-size: 1.5em; /* Smaller room code */
+    }
+
+    /* Stack File Upload Controls */
+    .file-upload-container {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-bottom: 10px;
+    }
+
+    .custom-file-upload, #uploadBtn {
+        width: 100%;
+        text-align: center;
+        display: block;
+    }
+
+    /* Fix File List Items breaking layout */
+    .file-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+    }
+
+    .file-info {
+        width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .file-actions {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .file-actions .btn {
+        flex: 1; /* Buttons share width equally */
+        font-size: 0.8rem; /* Slightly smaller text */
+        padding: 10px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+}
+/* --- FIX END --- */
